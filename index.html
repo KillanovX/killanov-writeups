@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0xWriteups | CTF & Security Research</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Carregando Lucide Icons --><script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hacker: {
+                            bg: '#0a0a0a',
+                            card: '#111111',
+                            border: '#333333',
+                            purple: '#8a00c2', /* Roxo mais escuro */
+                            purpleDim: 'rgba(138, 0, 194, 0.1)',
+                            text: '#e0e0e0',
+                            accent: '#f0db4f'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    animation: {
+                        'cursor-blink': 'blink 1s step-end infinite',
+                    },
+                    keyframes: {
+                        blink: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8a00c2; /* Scrollbar roxa mais escura */
+        }
+
+        /* Animação de "Erro/Tremida" Horizontal */
+        @keyframes error-shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-4px); }
+            40% { transform: translateX(4px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        .shake-hover {
+            display: inline-block; /* Necessário para o transform funcionar */
+            cursor: not-allowed; /* Cursor de 'proibido' para reforçar a ideia de erro */
+        }
+
+        .shake-hover:hover {
+            animation: error-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+            color: #ffffff; /* Texto fica branco durante o shake */
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8); /* Adicionei um pequeno brilho branco */
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.15;
+        }
+
+        /* 3D Card Styles */
+        .writeup-card {
+            transform-style: preserve-3d;
+            /* Garante que o texto não fique serrilhado durante a transformação */
+            backface-visibility: hidden;
+            will-change: transform;
+        }
+    </style>
+</head>
+<body class="font-mono antialiased selection:bg-hacker-purple selection:text-white">
+
+    <!-- Navbar --><nav class="fixed w-full z-50 bg-hacker-bg/90 backdrop-blur border-b border-hacker-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-hacker-purple font-bold text-xl">killanov@writeups:~$</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-8">
+                        <a href="#home" class="hover:text-hacker-purple transition-colors px-3 py-2 rounded-md text-sm font-medium">/home</a>
+                        <a href="#writeups" class="hover:text-hacker-purple transition-colors px-3 py-2 rounded-md text-sm font-medium">/writeups</a>
+                        <a href="#about" class="hover:text-hacker-purple transition-colors px-3 py-2 rounded-md text-sm font-medium">/whoami</a>
+                        <a href="#newsletter" class="bg-hacker-purple text-white hover:bg-white hover:text-black transition-colors px-4 py-2 rounded text-sm font-bold">Subscribe</a>
+                    </div>
+                </div>
+                <!-- Mobile menu button --><div class="md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-300 hover:text-white p-2">
+                        <i data-lucide="menu"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Mobile Menu (Hidden by default) --><div id="mobile-menu" class="hidden md:hidden bg-hacker-card border-b border-hacker-border">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#home" class="text-gray-300 hover:text-hacker-purple block px-3 py-2 rounded-md text-base font-medium">/home</a>
+                <a href="#writeups" class="text-gray-300 hover:text-hacker-purple block px-3 py-2 rounded-md text-base font-medium">/writeups</a>
+                <a href="#about" class="text-gray-300 hover:text-hacker-purple block px-3 py-2 rounded-md text-base font-medium">/whoami</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section --><section id="home" class="relative h-screen flex items-center justify-center overflow-hidden pt-16">
+        <canvas id="matrixCanvas"></canvas>
+        <div class="relative z-10 text-center px-4">
+            <div class="inline-block mb-4 px-3 py-1 border border-hacker-purple/50 rounded-full bg-hacker-purpleDim text-hacker-purple text-xs tracking-wider">
+                SYSTEM READY // V.2.0.25
+            </div>
+            
+            <!-- Título com estrutura para Typewriter -->
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight text-white">
+                <span id="hero-text-part1"></span><span id="hero-text-pwned" class="text-hacker-purple shake-hover"></span><span id="hero-cursor" class="text-hacker-purple">_</span>
+            </h1>
+            
+            <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+                <span id="typewriter-desc"></span>
+            </p>
+            
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#writeups" class="px-8 py-3 bg-hacker-purple text-white font-bold rounded hover:bg-white hover:text-black transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(138,0,194,0.6)] flex items-center justify-center gap-2 text-center">
+                    <i data-lucide="terminal" class="w-5 h-5"></i> Ler Writeups
+                </a>
+                <a href="https://github.com" target="_blank" class="px-8 py-3 border border-hacker-border bg-hacker-card text-white font-bold rounded hover:border-hacker-purple hover:text-hacker-purple hover:shadow-[0_0_15px_rgba(138,0,194,0.4)] transition-all flex items-center justify-center gap-2 text-center">
+                    <i data-lucide="github" class="w-5 h-5"></i> GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Search & Filter Bar --><div class="sticky top-16 z-40 bg-hacker-bg/95 border-b border-hacker-border backdrop-blur">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="relative w-full md:w-96">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4"></i>
+                <input type="text" id="searchInput" placeholder="grep 'nome_do_ctf'..." class="w-full bg-hacker-card border border-hacker-border rounded py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-hacker-purple text-white placeholder-gray-600">
+            </div>
+            <div class="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide" id="filterContainer">
+                <button class="filter-btn active px-4 py-1 rounded text-xs border border-hacker-purple bg-hacker-purple text-white font-bold whitespace-nowrap" data-filter="all">All</button>
+                <button class="filter-btn px-4 py-1 rounded text-xs border border-hacker-border hover:border-hacker-purple text-gray-300 whitespace-nowrap" data-filter="web">Web</button>
+                <button class="filter-btn px-4 py-1 rounded text-xs border border-hacker-border hover:border-hacker-purple text-gray-300 whitespace-nowrap" data-filter="pwn">Pwn</button>
+                <button class="filter-btn px-4 py-1 rounded text-xs border border-hacker-border hover:border-hacker-purple text-gray-300 whitespace-nowrap" data-filter="crypto">Crypto</button>
+                <button class="filter-btn px-4 py-1 rounded text-xs border border-hacker-border hover:border-hacker-purple text-gray-300 whitespace-nowrap" data-filter="forensics">Forensics</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Writeups Grid --><section id="writeups" class="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center mb-12">
+            <i data-lucide="file-code" class="text-hacker-purple mr-2"></i>
+            <h2 class="text-3xl font-bold text-white">Últimas Capturas</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="postsGrid">
+            <!-- Card 1: Web --><article class="bg-hacker-card border border-hacker-border rounded p-6 hover:border-hacker-purple transition-colors group relative overflow-hidden writeup-card" data-category="web">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                    <i data-lucide="globe" class="w-24 h-24 text-hacker-purple"></i>
+                </div>
+                <div class="flex items-center gap-2 mb-4 pointer-events-none">
+                    <span class="text-xs font-bold px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-900">WEB</span>
+                    <span class="text-xs text-gray-500">18 Nov 2025</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2 group-hover:text-hacker-purple transition-colors pointer-events-none">HTB: SQL Injection Master</h3>
+                <p class="text-gray-400 text-sm mb-4 line-clamp-3 pointer-events-none">
+                    Análise detalhada de como explorei uma vulnerabilidade de Blind SQL Injection para extrair o hash do administrador e obter RCE no servidor.
+                </p>
+                <div class="flex items-center justify-between mt-auto pointer-events-none">
+                    <span class="text-xs text-hacker-purple border border-hacker-purple/30 rounded px-2 py-0.5">Medium</span>
+                    <span class="text-sm font-bold flex items-center gap-1 hover:underline">Ler <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                </div>
+                <!-- Full link cover --><a href="#" class="absolute inset-0 z-20"></a>
+            </article>
+
+            <!-- Card 2: Pwn --><article class="bg-hacker-card border border-hacker-border rounded p-6 hover:border-hacker-purple transition-colors group relative overflow-hidden writeup-card" data-category="pwn">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                    <i data-lucide="cpu" class="w-24 h-24 text-red-500"></i>
+                </div>
+                <div class="flex items-center gap-2 mb-4 pointer-events-none">
+                    <span class="text-xs font-bold px-2 py-1 rounded bg-red-900/30 text-red-400 border border-red-900">PWN</span>
+                    <span class="text-xs text-gray-500">15 Nov 2025</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2 group-hover:text-hacker-purple transition-colors pointer-events-none">Buffer Overflow Basics</h3>
+                <p class="text-gray-400 text-sm mb-4 line-clamp-3 pointer-events-none">
+                    Um guia passo a passo sobre como sobrescrever o EIP e controlar o fluxo de execução em binários Linux 32-bit sem proteções.
+                </p>
+                <div class="flex items-center justify-between mt-auto pointer-events-none">
+                    <span class="text-xs text-hacker-purple border border-hacker-purple/30 rounded px-2 py-0.5">Easy</span>
+                    <span class="text-sm font-bold flex items-center gap-1 hover:underline">Ler <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                </div>
+                <a href="#" class="absolute inset-0 z-20"></a>
+            </article>
+
+            <!-- Card 3: Crypto --><article class="bg-hacker-card border border-hacker-border rounded p-6 hover:border-hacker-purple transition-colors group relative overflow-hidden writeup-card" data-category="crypto">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                    <i data-lucide="lock" class="w-24 h-24 text-yellow-500"></i>
+                </div>
+                <div class="flex items-center gap-2 mb-4 pointer-events-none">
+                    <span class="text-xs font-bold px-2 py-1 rounded bg-yellow-900/30 text-yellow-400 border border-yellow-900">CRYPTO</span>
+                    <span class="text-xs text-gray-500">10 Nov 2025</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2 group-hover:text-hacker-purple transition-colors pointer-events-none">RSA Oracle Attack</h3>
+                <p class="text-gray-400 text-sm mb-4 line-clamp-3 pointer-events-none">
+                    Quebrando a criptografia RSA utilizando um Padding Oracle Attack em um desafio CTF Zone. Scripts Python inclusos.
+                </p>
+                <div class="flex items-center justify-between mt-auto pointer-events-none">
+                    <span class="text-xs text-red-400 border border-red-400/30 rounded px-2 py-0.5">Hard</span>
+                    <span class="text-sm font-bold flex items-center gap-1 hover:underline">Ler <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                </div>
+                <a href="#" class="absolute inset-0 z-20"></a>
+            </article>
+
+            <!-- Card 4: Forensics --><article class="bg-hacker-card border border-hacker-border rounded p-6 hover:border-hacker-purple transition-colors group relative overflow-hidden writeup-card" data-category="forensics">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                    <i data-lucide="search" class="w-24 h-24 text-purple-500"></i>
+                </div>
+                <div class="flex items-center gap-2 mb-4 pointer-events-none">
+                    <span class="text-xs font-bold px-2 py-1 rounded bg-purple-900/30 text-purple-400 border border-purple-900">FORENSICS</span>
+                    <span class="text-xs text-gray-500">05 Nov 2025</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2 group-hover:text-hacker-purple transition-colors pointer-events-none">Memory Dump Analysis</h3>
+                <p class="text-gray-400 text-sm mb-4 line-clamp-3 pointer-events-none">
+                    Utilizando Volatility 3 para encontrar malwares escondidos na memória RAM e extrair senhas em texto plano.
+                </p>
+                <div class="flex items-center justify-between mt-auto pointer-events-none">
+                    <span class="text-xs text-hacker-purple border border-hacker-purple/30 rounded px-2 py-0.5">Medium</span>
+                    <span class="text-sm font-bold flex items-center gap-1 hover:underline">Ler <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                </div>
+                <a href="#" class="absolute inset-0 z-20"></a>
+            </article>
+
+             <!-- Card 5: Web --><article class="bg-hacker-card border border-hacker-border rounded p-6 hover:border-hacker-purple transition-colors group relative overflow-hidden writeup-card" data-category="web">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                    <i data-lucide="globe" class="w-24 h-24 text-hacker-purple"></i>
+                </div>
+                <div class="flex items-center gap-2 mb-4 pointer-events-none">
+                    <span class="text-xs font-bold px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-900">WEB</span>
+                    <span class="text-xs text-gray-500">01 Nov 2025</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2 group-hover:text-hacker-purple transition-colors pointer-events-none">XSS to Account Takeover</h3>
+                <p class="text-gray-400 text-sm mb-4 line-clamp-3 pointer-events-none">
+                    Explorando um Stored XSS para roubar cookies de sessão e sequestrar contas de administradores.
+                </p>
+                <div class="flex items-center justify-between mt-auto pointer-events-none">
+                    <span class="text-xs text-hacker-purple border border-hacker-purple/30 rounded px-2 py-0.5">Easy</span>
+                    <span class="text-sm font-bold flex items-center gap-1 hover:underline">Ler <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                </div>
+                <a href="#" class="absolute inset-0 z-20"></a>
+            </article>
+        </div>
+        
+        <div class="mt-12 text-center">
+            <button class="border border-hacker-border text-gray-400 hover:text-white hover:border-white px-6 py-2 rounded transition-colors">
+                Carregar mais logs...
+            </button>
+        </div>
+    </section>
+
+    <!-- About Section --><section id="about" class="bg-hacker-card border-y border-hacker-border py-20">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <div class="w-24 h-24 bg-gray-800 rounded-full mx-auto mb-6 border-2 border-hacker-purple flex items-center justify-center overflow-hidden">
+                <i data-lucide="user" class="w-12 h-12 text-hacker-purple"></i>
+            </div>
+            <h2 class="text-3xl font-bold mb-4">/whoami</h2>
+            <p class="text-gray-400 mb-8 leading-relaxed">
+                Olá, eu sou <span class="text-hacker-purple">Killanov</span>, um Pesquisador de Segurança e entusiasta de CTFs. Este blog serve como um repositório para meus writeups de HackTheBox, TryHackMe e competições oficiais.
+            </p>
+            <div class="flex justify-center gap-6">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-white">50+</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-wider">Machines Pwned</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-white">TOP 1%</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-wider">CTF Ranking</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-white">3</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-wider">CVEs Found</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter --><section id="newsletter" class="py-20 max-w-7xl mx-auto px-4">
+        <div class="bg-hacker-purple/10 border border-hacker-purple rounded-lg p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div class="md:w-1/2">
+                <h3 class="text-2xl font-bold mb-2 text-white">Não perca o próximo exploit</h3>
+                <p class="text-gray-400 text-sm">Receba writeups e dicas de segurança diretamente na sua inbox. Sem spam, apenas flags.</p>
+            </div>
+            <div class="w-full md:w-1/2">
+                <form class="flex flex-col sm:flex-row gap-2" onsubmit="event.preventDefault(); alert('Inscrição simulada com sucesso!');">
+                    <input type="email" placeholder="email@exemplo.com" class="flex-1 bg-black border border-hacker-border text-white px-4 py-3 rounded focus:outline-none focus:border-hacker-purple">
+                    <button type="submit" class="bg-hacker-purple text-white font-bold px-6 py-3 rounded hover:bg-white hover:text-black transition-colors whitespace-nowrap">
+                        Subscribe
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer --><footer class="border-t border-hacker-border bg-black py-8">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-gray-500 text-sm">
+                &copy; 2025 0xWriteups. All rights reserved.
+            </div>
+            <div class="flex space-x-6">
+                <a href="#" class="text-gray-500 hover:text-hacker-purple transition-colors"><i data-lucide="github" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-500 hover:text-hacker-purple transition-colors"><i data-lucide="twitter" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-500 hover:text-hacker-purple transition-colors"><i data-lucide="linkedin" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-500 hover:text-hacker-purple transition-colors"><i data-lucide="flag" class="w-5 h-5"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Inicializa ícones Lucide apenas quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            } else {
+                console.error("Lucide library not loaded.");
+            }
+        });
+
+        // Matrix Rain Effect
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const chars = '01'; // Binary rain
+        const fontSize = 14;
+        const columns = canvas.width / fontSize;
+        const drops = [];
+
+        for (let i = 0; i < columns; i++) {
+            drops[i] = 1;
+        }
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.05)'; // Fade effect
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // ALTERAÇÃO: COR DA MATRIX AGORA É ROXO VIOLETA
+            ctx.fillStyle = '#8a00c2'; /* Cor da matrix ajustada para o roxo mais escuro */
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 50);
+
+        // --- TYPEWRITER SEQUENCIAL & HEADER ---
+        
+        // Conteúdo para digitar
+        const titlePart1 = "Smile, you are being ";
+        const titlePart2 = "PWNED";
+        const descText = "Desvendando vulnerabilidades, uma flag de cada vez.";
+        
+        // Elementos DOM
+        const elTitlePart1 = document.getElementById('hero-text-part1');
+        const elTitlePwned = document.getElementById('hero-text-pwned');
+        const elCursor = document.getElementById('hero-cursor');
+        const elDesc = document.getElementById('typewriter-desc');
+        
+        // Função de digitação genérica
+        async function typeString(element, text, speed = 50) {
+            for (let char of text) {
+                element.innerHTML += char;
+                await new Promise(r => setTimeout(r, speed));
+            }
+        }
+
+        async function initTypewriter() {
+            // Garante que o cursor não pisca enquanto digita (estilo terminal ativo)
+            elCursor.classList.remove('animate-cursor-blink');
+            
+            // 1. Digita a primeira parte do título
+            await typeString(elTitlePart1, titlePart1, 60);
+            
+            // 2. Digita o PWNED (com ênfase um pouco mais lenta ou igual)
+            await typeString(elTitlePwned, titlePart2, 100); 
+            
+            // 3. Título terminou: Cursor começa a piscar
+            elCursor.classList.add('animate-cursor-blink');
+            
+            // 4. Pequena pausa dramática antes de digitar a descrição
+            await new Promise(r => setTimeout(r, 400));
+            
+            // 5. Digita a descrição
+            await typeString(elDesc, descText, 30);
+        }
+        
+        // Inicia após pequeno delay inicial
+        setTimeout(initTypewriter, 500);
+
+
+        // Mobile Menu Toggle
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        menuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Filter & Search Logic
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const posts = document.querySelectorAll('.writeup-card');
+        const searchInput = document.getElementById('searchInput');
+
+        // Category Filter
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all
+                filterBtns.forEach(b => {
+                    b.classList.remove('bg-hacker-purple', 'text-white', 'font-bold', 'border-hacker-purple');
+                    b.classList.add('text-gray-300', 'border-hacker-border');
+                });
+                
+                // Add active class to clicked
+                btn.classList.remove('text-gray-300', 'border-hacker-border');
+                btn.classList.add('bg-hacker-purple', 'text-white', 'font-bold', 'border-hacker-purple');
+
+                const category = btn.getAttribute('data-filter');
+                filterPosts(category, searchInput.value);
+            });
+        });
+
+        // Search Input
+        searchInput.addEventListener('input', (e) => {
+            const activeBtn = document.querySelector('.filter-btn.bg-hacker-purple');
+            const activeCategory = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
+            filterPosts(activeCategory, e.target.value);
+        });
+
+        function filterPosts(category, searchTerm) {
+            const term = searchTerm.toLowerCase();
+
+            posts.forEach(post => {
+                const postCategory = post.getAttribute('data-category');
+                const title = post.querySelector('h3').innerText.toLowerCase();
+                const desc = post.querySelector('p').innerText.toLowerCase();
+                
+                const matchesCategory = category === 'all' || postCategory === category;
+                const matchesSearch = title.includes(term) || desc.includes(term);
+
+                if (matchesCategory && matchesSearch) {
+                    post.classList.remove('hidden');
+                } else {
+                    post.classList.add('hidden');
+                }
+            });
+        }
+
+        // 3D Tilt Effect Logic
+        const cards = document.querySelectorAll('.writeup-card');
+
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                // Calculate rotation based on mouse position
+                // Limit rotation to +/- 3 degrees for VERY subtle effect
+                const rotateX = ((y - centerY) / centerY) * -3;
+                const rotateY = ((x - centerX) / centerX) * 3;
+
+                // Apply transform
+                // scale3d adds a slight "pop" towards the user
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+                // Remove transition during movement to prevent lag
+                card.style.transition = 'transform 0s'; 
+            });
+
+            card.addEventListener('mouseleave', () => {
+                // Reset transform
+                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+                // Add transition back for smooth reset
+                card.style.transition = 'transform 0.5s ease';
+            });
+        });
+
+    </script>
+</body>
+</html>
